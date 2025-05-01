@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color Permutation Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      text-align: center;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    .difficulty-selector {
+      margin: 20px 0;
+    }
+
+    #difficultyInput {
+      padding: 8px;
+      font-size: 16px;
+      width: 60px;
+      text-align: center;
+    }
+
+    #startButton {
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-left: 10px;
+      font-size: 16px;
+    }
+
+    .game-container {
+      display: none;
+      margin-top: 30px;
+    }
+
+    .colors-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .color-option {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+
+    .color-option.selected {
+      border: 2px solid black;
+    }
+
+    .selected-colors {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px 0;
+      min-height: 60px;
+    }
+
+    .selected-color {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 2px solid #333;
+    }
+
+    .empty-slot {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 2px dashed #999;
+      background-color: #f1f1f1;
+    }
+
+    #submitButton {
+      padding: 10px 20px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 20px;
+    }
+
+    #submitButton:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+
+    .feedback {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+
+    .attempts {
+      margin-top: 10px;
+      font-size: 16px;
+    }
+
+    .history-container {
+      margin-top: 30px;
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .attempt-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 10px 0;
+      gap: 10px;
+    }
+
+    .attempt-colors {
+      display: flex;
+      gap: 5px;
+    }
+
+    .attempt-color {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px solid #333;
+    }
+
+    .attempt-feedback {
+      margin-left: 20px;
+    }
+
+    .win-message {
+      font-size: 24px;
+      font-weight: bold;
+      color: #4CAF50;
+      margin: 30px 0;
+      display: none;
+    }
+
+    #resetButton {
+      padding: 10px 20px;
+      background-color: #f44336;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 20px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Color Permutation Game</h1>
+
+  <div class="difficulty-selector">
+    <label for="difficultyInput">Choose difficulty (3-7): </label>
+    <input type="number" id="difficultyInput" min="3" max="7" value="4">
+    <button id="startButton">Start Game</button>
+  </div>
+
+  <div class="game-container" id="gameContainer">
+    <p class="game-description">
+      Try to guess the correct order of the colors!<br>
+      Click on colors below to place them in order, then submit your guess.
+    </p>
+
+    <div class="colors-container" id="colorOptions"></div>
+
+    <div class="selected-colors" id="selectedColors"></div>
+
+    <button id="submitButton" disabled>Submit Guess</button>
+
+    <div class="feedback" id="feedback"></div>
+    <div class="attempts" id="attemptsCounter">Attempts: 0</div>
+
+    <div class="history-container" id="historyContainer">
+      <h3>Previous Attempts</h3>
+      <div id="attemptsHistory"></div>
+    </div>
+
+    <div class="win-message" id="winMessage">
+      🎉 Congratulations! You found the correct sequence! 🎉
+    </div>
+
+    <button id="resetButton">Play Again</button>
+  </div>
+
+  <script>
+    // Available colors
+    const COLORS = [
+      '#FF0000', // Red
+      '#00FF00', // Green
+      '#0000FF', // Blue
+      '#FFFF00', // Yellow
+      '#FF00FF', // Magenta
+      '#00FFFF', // Cyan
+      '#FFA500'  // Orange
+    ];
+
+    // Game state
+    let difficulty = 4;
+    let selectedColors = [];
+    let targetSequence = [];
+    let attempts = 0;
+    let gameWon = false;
+
+    // DOM Elements
+    const difficultyInput = document.getElementById('difficultyInput');
+    const startButton = document.getElementById('startButton');
+    const gameContainer = document.getElementById('gameContainer');
+    const colorOptions = document.getElementById('colorOptions');
+    const selectedColorsContainer = document.getElementById('selectedColors');
+    const submitButton = document.getElementById('submitButton');
+    const feedback = document.getElementById('feedback');
+    const attemptsCounter = document.getElementById('attemptsCounter');
+    const historyContainer = document.getElementById('historyContainer');
+    const attemptsHistory = document.getElementById('attemptsHistory');
+    const winMessage = document.getElementById('winMessage');
+    const resetButton = document.getElementById('resetButton');
+
+    // Start game when button is clicked
+    startButton.addEventListener('click', startGame);
+
+    // Initialize a new game
+    function startGame() {
+      // Get difficulty level
+      difficulty = parseInt(difficultyInput.value);
+
+      // Validate difficulty
+      if (isNaN(difficulty) || difficulty < 3 || difficulty > 7) {
+        alert('Please enter a number between 3 and 7');
+        return;
+      }
+
+      // Reset game state
+      selectedColors = [];
+      attempts = 0;
+      gameWon = false;
+
+      // Show game container
+      gameContainer.style.display = 'block';
+
+      // Generate target sequence
+      const shuffledColors = [...COLORS.slice(0, difficulty)];
+      shuffleArray(shuffledColors);
+      targetSequence = shuffledColors;
+
+      // Render color options
+      renderColorOptions();
+
+      // Render empty slots for selected colors
+      renderSelectedColors();
+
+      // Reset UI elements
+      feedback.textContent = '';
+      attemptsCounter.textContent = 'Attempts: 0';
+      attemptsHistory.innerHTML = '';
+      historyContainer.style.display = 'none';
+      winMessage.style.display = 'none';
+      resetButton.style.display = 'none';
+      submitButton.disabled = true;
+    }
+
+    // Render the color options
+    function renderColorOptions() {
+      colorOptions.innerHTML = '';
+
+      for (let i = 0; i < difficulty; i++) {
+        const colorElement = document.createElement('div');
+        colorElement.className = 'color-option';
+        colorElement.style.backgroundColor = COLORS[i];
+        colorElement.dataset.color = COLORS[i];
+
+        colorElement.addEventListener('click', () => {
+          if (gameWon) return;
+
+          if (selectedColors.length < difficulty) {
+            selectedColors.push(COLORS[i]);
+            renderSelectedColors();
+
+            // Enable submit button when all colors are selected
+            if (selectedColors.length === difficulty) {
+              submitButton.disabled = false;
+            }
+          }
+        });
+
+        colorOptions.appendChild(colorElement);
+      }
+    }
+
+    // Render the selected colors or empty slots
+    function renderSelectedColors() {
+      selectedColorsContainer.innerHTML = '';
+
+      for (let i = 0; i < difficulty; i++) {
+        const colorElement = document.createElement('div');
+
+        if (i < selectedColors.length) {
+          colorElement.className = 'selected-color';
+          colorElement.style.backgroundColor = selectedColors[i];
+
+          // Add click event to remove this color
+          colorElement.addEventListener('click', () => {
+            if (gameWon) return;
+
+            selectedColors.splice(i, 1);
+            renderSelectedColors();
+            submitButton.disabled = true;
+          });
+        } else {
+          colorElement.className = 'empty-slot';
+        }
+
+        selectedColorsContainer.appendChild(colorElement);
+      }
+    }
+
+    // Submit button click handler
+    submitButton.addEventListener('click', () => {
+      if (selectedColors.length !== difficulty) return;
+
+      attempts++;
+      attemptsCounter.textContent = `Attempts: ${attempts}`;
+
+      // Count correct positions
+      let correctPositions = 0;
+      for (let i = 0; i < difficulty; i++) {
+        if (selectedColors[i] === targetSequence[i]) {
+          correctPositions++;
+        }
+      }
+
+      // Check if won
+      if (correctPositions === difficulty) {
+        gameWon = true;
+        feedback.textContent = `All ${difficulty} colors are in the correct position!`;
+        winMessage.style.display = 'block';
+        resetButton.style.display = 'inline-block';
+        submitButton.disabled = true;
+      } else {
+        feedback.textContent = `${correctPositions} out of ${difficulty} colors are in the correct position.`;
+      }
+
+      // Add to history
+      historyContainer.style.display = 'block';
+      const attemptRow = document.createElement('div');
+      attemptRow.className = 'attempt-row';
+
+      const attemptColors = document.createElement('div');
+      attemptColors.className = 'attempt-colors';
+
+      for (let i = 0; i < difficulty; i++) {
+        const colorElement = document.createElement('div');
+        colorElement.className = 'attempt-color';
+        colorElement.style.backgroundColor = selectedColors[i];
+        attemptColors.appendChild(colorElement);
+      }
+
+      const attemptFeedback = document.createElement('div');
+      attemptFeedback.className = 'attempt-feedback';
+      attemptFeedback.textContent = `${correctPositions} correct`;
+
+      attemptRow.appendChild(attemptColors);
+      attemptRow.appendChild(attemptFeedback);
+      attemptsHistory.prepend(attemptRow);
+
+      // Reset selection for next attempt if not won
+      if (!gameWon) {
+        selectedColors = [];
+        renderSelectedColors();
+        submitButton.disabled = true;
+      }
+    });
+
+    // Reset button click handler
+    resetButton.addEventListener('click', startGame);
+
+    // Helper function to shuffle array (Fisher-Yates algorithm)
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+  </script>
+</body>
+</html>
